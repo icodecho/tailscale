@@ -1,0 +1,70 @@
+name: CrossBuild-windows
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - os: windows
+            arch: amd64
+            suffix: .exe
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # - uses: actions/setup-go@v5
+      #  with:
+      #    go-version: '1.25'
+      #    cache: true
+
+      - name: Chmod 
+        run: |
+          chmod -R +x ./tool/
+
+      - name: Build code install
+        run: |
+          GOOS=windows GOARCH=amd64 ./tool/go install tailscale.com/cmd/tailscale@v1.96.3 tailscale.com/cmd/tailscaled@v1.96.3
+
+      - name: Build tailscale
+        env:
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+          CGO_ENABLED: 0
+        run: |
+          ./tool/go build -ldflags="-s -w" \
+                   -o tailscale-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix }} \
+                   tailscale.com/cmd/tailscale
+
+      - name: Build tailscaled
+        env:
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+          CGO_ENABLED: 0
+        run: |
+          ./tool/go build -ldflags="-s -w" \
+                   -o tailscaled-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix }} \
+                   tailscale.com/cmd/tailscaled
+
+      - name: listFiles
+        # env:
+          # GOOS: ${{ matrix.os }}
+          # GOARCH: ${{ matrix.arch }}
+          # CGO_ENABLED: 0
+        run: |
+          ls
+
+      - name: Upload artifacts tailscale
+        uses: actions/upload-artifact@v4
+        with:
+          name: tailscale-${{ matrix.os }}-${{ matrix.arch }}
+          path: tailscale-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix }}
+
+      - name: Upload artifacts tailscaled
+        uses: actions/upload-artifact@v4
+        with:
+          name: tailscaled-${{ matrix.os }}-${{ matrix.arch }}
+          path: tailscaled-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.suffix }}
